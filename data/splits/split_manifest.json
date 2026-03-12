@@ -1,0 +1,15 @@
+{
+  "dataset_version": "v0.1.0",
+  "random_seed": 42,
+  "stratify_by": ["sentiment_label", "slang_label"],
+  "ratios": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  },
+  "files": {
+    "train": "data/splits/train_ids.txt",
+    "val": "data/splits/val_ids.txt",
+    "test": "data/splits/test_ids.txt"
+  }
+}
