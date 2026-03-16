@@ -1,0 +1,60 @@
+{
+  "created_at_utc": "2026-03-16T14:25:58.275013+00:00",
+  "input_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_ingested.csv",
+  "output_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_cleaned.csv",
+  "output_schema": [
+    "id",
+    "text_original",
+    "source",
+    "task_label",
+    "task_type",
+    "text_clean",
+    "language",
+    "language_metadata"
+  ],
+  "rules": {
+    "remove_urls": true,
+    "remove_mentions": true,
+    "normalize_whitespace": true,
+    "drop_exact_duplicates": true,
+    "dedupe_key": [
+      "text_clean",
+      "source",
+      "task_label",
+      "task_type"
+    ],
+    "preserve_signals": [
+      "emojis",
+      "hashtags",
+      "profanity",
+      "expressive_spelling"
+    ]
+  },
+  "counts": {
+    "rows_seen": 73574,
+    "rows_written": 73396,
+    "rows_dropped_empty_after_cleaning": 14,
+    "rows_dropped_exact_duplicates": 164,
+    "url_tokens_removed": 25814,
+    "mentions_removed": 18656,
+    "rows_by_task_type_before": {
+      "sentiment": 44955,
+      "sarcasm": 28619
+    },
+    "rows_by_task_type_after": {
+      "sentiment": 44893,
+      "sarcasm": 28503
+    },
+    "rows_by_source_before": {
+      "covid19_nlp_train": 41157,
+      "covid19_nlp_test": 3798,
+      "news_headlines_sarcasm_v2": 28619
+    },
+    "rows_by_source_after": {
+      "covid19_nlp_train": 41097,
+      "covid19_nlp_test": 3796,
+      "news_headlines_sarcasm_v2": 28503
+    }
+  },
+  "language_metadata_note": "Language is set using source-level English assumptions because no external language-ID model is used at this stage."
+}
