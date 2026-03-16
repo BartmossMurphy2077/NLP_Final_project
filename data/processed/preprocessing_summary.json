@@ -1,0 +1,42 @@
+{
+  "created_at_utc": "2026-03-16T14:47:32.243965+00:00",
+  "input_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_cleaned.csv",
+  "outputs": {
+    "sentiment_base": "/Users/arimoreira/NLP/NLP_Final_project/data/processed/sentiment_preprocessed.csv",
+    "sentiment_variants": "/Users/arimoreira/NLP/NLP_Final_project/data/processed/sentiment_preprocessed_variants.csv",
+    "sarcasm_auxiliary": "/Users/arimoreira/NLP/NLP_Final_project/data/processed/sarcasm_auxiliary_preprocessed.csv",
+    "split_manifest": "/Users/arimoreira/NLP/NLP_Final_project/data/splits/split_manifest.json"
+  },
+  "counts": {
+    "input_rows_by_task_type": {
+      "sentiment": 44893,
+      "sarcasm": 28503
+    },
+    "sentiment_rows": 44893,
+    "sarcasm_rows": 28503,
+    "sentiment_variant_rows": 134679,
+    "split_counts": {
+      "train": 35910,
+      "val": 4485,
+      "test": 4498
+    },
+    "slang_label_distribution_sentiment": {
+      "formal": 23139,
+      "slang_heavy": 21754
+    },
+    "slang_label_distribution_sarcasm": {
+      "formal": 28084,
+      "slang_heavy": 419
+    }
+  },
+  "notes": {
+    "main_benchmark_task_type": "sentiment",
+    "auxiliary_task_type": "sarcasm",
+    "variants": [
+      "original",
+      "slang_masked",
+      "mixed"
+    ],
+    "mask_token": "[SLANG]"
+  }
+}
