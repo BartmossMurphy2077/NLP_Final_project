@@ -1,0 +1,67 @@
+{
+  "created_at_utc": "2026-03-16T14:16:22.305533+00:00",
+  "output_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_ingested.csv",
+  "schema": [
+    "id",
+    "text_original",
+    "source",
+    "task_label",
+    "task_type"
+  ],
+  "sources": {
+    "covid19_nlp_train": {
+      "input_path": "/Users/arimoreira/NLP/NLP_Final_project/data/raw/covid19_nlp_text_classification/coronavirus/Corona_NLP_train.csv",
+      "rows_seen": 41157,
+      "rows_written": 41157,
+      "rows_skipped_empty_text": 0,
+      "label_counts": {
+        "Neutral": 7713,
+        "Positive": 11422,
+        "Extremely Negative": 5481,
+        "Negative": 9917,
+        "Extremely Positive": 6624
+      },
+      "task_type": "sentiment"
+    },
+    "covid19_nlp_test": {
+      "input_path": "/Users/arimoreira/NLP/NLP_Final_project/data/raw/covid19_nlp_text_classification/coronavirus/Corona_NLP_test.csv",
+      "rows_seen": 3798,
+      "rows_written": 3798,
+      "rows_skipped_empty_text": 0,
+      "label_counts": {
+        "Extremely Negative": 592,
+        "Positive": 947,
+        "Extremely Positive": 599,
+        "Negative": 1041,
+        "Neutral": 619
+      },
+      "task_type": "sentiment"
+    },
+    "news_headlines_sarcasm_v2": {
+      "input_path": "/Users/arimoreira/NLP/NLP_Final_project/data/raw/news_headlines_sarcasm/newsheadlines/Sarcasm_Headlines_Dataset_v2.json",
+      "rows_seen": 28619,
+      "rows_written": 28619,
+      "rows_skipped_empty_text": 0,
+      "rows_skipped_invalid_label": 0,
+      "label_counts": {
+        "sarcastic": 13634,
+        "not_sarcastic": 14985
+      },
+      "task_type": "sarcasm",
+      "usage_note": "Auxiliary dataset for informal language signals; not the main sentiment benchmark."
+    }
+  },
+  "totals": {
+    "rows_written": 73574,
+    "sources_by_task_type": {
+      "sentiment": 2,
+      "sarcasm": 1
+    },
+    "rows_by_task_type": {
+      "sentiment": 44955,
+      "sarcasm": 28619
+    },
+    "main_benchmark_task_type": "sentiment",
+    "auxiliary_task_type": "sarcasm"
+  }
+}
