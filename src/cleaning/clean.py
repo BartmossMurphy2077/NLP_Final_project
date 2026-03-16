@@ -73,7 +73,9 @@ def main() -> None:
     stats = {
         "rows_seen": 0,
         "rows_written": 0,
+        "rows_empty_text_in_input": 0,
         "rows_dropped_empty_after_cleaning": 0,
+        "rows_became_empty_after_cleaning": 0,
         "rows_dropped_exact_duplicates": 0,
         "url_tokens_removed": 0,
         "mentions_removed": 0,
@@ -100,6 +102,8 @@ def main() -> None:
             task_label = (row.get("task_label") or "").strip()
             task_type = (row.get("task_type") or "").strip()
             text_original = (row.get("text_original") or "").strip()
+            if not text_original:
+                stats["rows_empty_text_in_input"] += 1
 
             stats["rows_by_task_type_before"][task_type] += 1
             stats["rows_by_source_before"][source] += 1
@@ -110,6 +114,8 @@ def main() -> None:
 
             if not text_clean:
                 stats["rows_dropped_empty_after_cleaning"] += 1
+                if text_original:
+                    stats["rows_became_empty_after_cleaning"] += 1
                 continue
 
             dedupe_key = (text_clean, source, task_label, task_type)
@@ -154,9 +160,15 @@ def main() -> None:
             ],
         },
         "counts": {
+            "rows_in": stats["rows_seen"],
+            "rows_out": stats["rows_written"],
+            "duplicates_removed": stats["rows_dropped_exact_duplicates"],
+            "null_text_count": stats["rows_empty_text_in_input"],
             "rows_seen": stats["rows_seen"],
             "rows_written": stats["rows_written"],
+            "rows_empty_text_in_input": stats["rows_empty_text_in_input"],
             "rows_dropped_empty_after_cleaning": stats["rows_dropped_empty_after_cleaning"],
+            "rows_became_empty_after_cleaning": stats["rows_became_empty_after_cleaning"],
             "rows_dropped_exact_duplicates": stats["rows_dropped_exact_duplicates"],
             "url_tokens_removed": stats["url_tokens_removed"],
             "mentions_removed": stats["mentions_removed"],

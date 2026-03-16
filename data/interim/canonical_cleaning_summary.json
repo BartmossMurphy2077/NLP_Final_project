@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-03-16T14:25:58.275013+00:00",
+  "created_at_utc": "2026-03-16T14:41:08.079664+00:00",
   "input_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_ingested.csv",
   "output_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_cleaned.csv",
   "output_schema": [
@@ -31,9 +31,15 @@
     ]
   },
   "counts": {
+    "rows_in": 73574,
+    "rows_out": 73396,
+    "duplicates_removed": 164,
+    "null_text_count": 0,
     "rows_seen": 73574,
     "rows_written": 73396,
+    "rows_empty_text_in_input": 0,
     "rows_dropped_empty_after_cleaning": 14,
+    "rows_became_empty_after_cleaning": 14,
     "rows_dropped_exact_duplicates": 164,
     "url_tokens_removed": 25814,
     "mentions_removed": 18656,
