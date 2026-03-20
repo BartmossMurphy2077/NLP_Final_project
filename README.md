@@ -36,3 +36,55 @@ Final modeling-ready data should include:
 - `slang_label` (`slang_heavy`, `formal`)
 - `source`
 - `split` (`train`, `val`, `test`)
+
+## Modeling Scaffold
+
+The repository now includes a modular modeling stack in `src/modeling/` with:
+
+- Baseline classifier pipelines for BERT-base, BERTweet, and GPT
+- Domain-adaptive pretraining (DAPT) entrypoint for GPT on social text
+- Slang-focused GPT fine-tuning configuration
+- Shared data loading, preprocessing transforms, and seed control
+- Prediction and misclassification logging for error analysis
+
+### Install Modeling Dependencies
+
+```bash
+pip install -r src/modeling/requirements_modeling.txt
+```
+
+### Baseline Training
+
+```bash
+python -m src.modeling.run_classification --config configs/modeling/bert_base_baseline.yaml
+python -m src.modeling.run_classification --config configs/modeling/bertweet_baseline.yaml
+python -m src.modeling.run_classification --config configs/modeling/gpt_classification_baseline.yaml
+```
+
+### GPT Domain Adaptation (DAPT)
+
+```bash
+python -m src.modeling.dapt --config configs/modeling/gpt_dapt.yaml
+```
+
+### GPT Slang-Heavy Fine-Tuning
+
+```bash
+python -m src.modeling.run_gpt_finetune --config configs/modeling/gpt_finetune_slang.yaml
+```
+
+### Ablation Options
+
+Use the experiment config to toggle:
+
+- `ablation.remove_profanity: true|false`
+- `ablation.remove_emojis: true|false`
+
+### Artifacts
+
+Each run writes outputs under `outputs/modeling/...` including:
+
+- checkpoints and final model weights
+- `predictions_test.csv`
+- `misclassified_test.csv`
+- per-epoch metric logs and `run_summary.json`
