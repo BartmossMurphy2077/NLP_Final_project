@@ -1,0 +1,25 @@
+{
+  "dataset_version": "v0.2.0",
+  "created_at_utc": "2026-03-16T14:47:32.241367+00:00",
+  "random_seed": 42,
+  "stratify_by": [
+    "sentiment_label",
+    "slang_label"
+  ],
+  "ratios": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  },
+  "files": {
+    "train": "data/splits/train_ids.txt",
+    "val": "data/splits/val_ids.txt",
+    "test": "data/splits/test_ids.txt"
+  },
+  "counts": {
+    "train": 35910,
+    "val": 4485,
+    "test": 4498,
+    "total_sentiment_rows": 44893
+  }
+}

@@ -1,0 +1,41 @@
+project:
+  name: nlp_final_project
+  task: sentiment_analysis
+  research_question: "How does modern slang affect model performance?"
+
+io:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+  splits_dir: data/splits
+
+cleaning:
+  remove_urls: true
+  remove_mentions: true
+  preserve_hashtags: true
+  preserve_emojis: true
+  preserve_profanity: true
+  preserve_ascii_expressive_spelling: true
+
+preprocessing:
+  slang_detection:
+    method: "regex_plus_manual_qc"
+    labels: ["slang_heavy", "formal"]
+  variants: ["original", "slang_masked", "mixed"]
+  split_strategy:
+    train: 0.8
+    val: 0.1
+    test: 0.1
+    stratify_by: ["sentiment_label", "slang_label"]
+    random_seed: 42
+
+data_contract:
+  required_columns:
+    - id
+    - text_original
+    - text_clean
+    - text_variant
+    - sentiment_label
+    - slang_label
+    - source
+    - split
