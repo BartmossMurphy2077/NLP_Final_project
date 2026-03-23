@@ -1,11 +1,12 @@
 """Extract TF-IDF features from preprocessed sentiment data."""
 
 from __future__ import annotations
-
 import csv
+import json
 from pathlib import Path
-
 import numpy as np
+import joblib
+from scipy.sparse import save_npz
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
@@ -21,15 +22,15 @@ TEST_IDS_PATH = SPLITS_DIR / "test_ids.txt"
 FEATURE_OUTPUT_DIR = PROCESSED_DIR / "features"
 
 
-def _load_split_ids(path: Path) -> set[str]:
-    """Load split IDs from text file."""
-    ids = set()
+def _load_split_ids(path: Path) -> list[str]:
+    """Load split IDs from text file preserving order, deduplicating."""
+    seen = {}
     with path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
-                ids.add(line)
-    return ids
+                seen[line] = None 
+    return list(seen.keys())
 
 
 def _load_sentiment_data() -> dict[str, dict]:
@@ -43,19 +44,22 @@ def _load_sentiment_data() -> dict[str, dict]:
 
 
 def main() -> None:
-    # Verify input exists
     if not SENTIMENT_INPUT_PATH.exists():
         raise FileNotFoundError(
             f"Missing input file: {SENTIMENT_INPUT_PATH}. Run src/preprocessing/preprocess.py first."
         )
 
-    # Load split IDs
     train_ids = _load_split_ids(TRAIN_IDS_PATH)
-    val_ids = _load_split_ids(VAL_IDS_PATH)
-    test_ids = _load_split_ids(TEST_IDS_PATH)
+    val_ids   = _load_split_ids(VAL_IDS_PATH)
+    test_ids  = _load_split_ids(TEST_IDS_PATH)
 
-    # Load all sentiment data
     all_data = _load_sentiment_data()
+
+    # Warn on missing IDs instead of silently dropping
+    for split_name, split_ids in [("train", train_ids), ("val", val_ids), ("test", test_ids)]:
+        missing = [id_ for id_ in split_ids if id_ not in all_data]
+        if missing:
+            print(f"WARNING: {len(missing)} {split_name} IDs not found in preprocessed data.")
 
     # Determine which text column to use
     # From preprocessing_report.md and preprocess.py, text_clean is the main modeling text
@@ -83,10 +87,11 @@ def main() -> None:
         max_df=0.95,
         strip_accents="unicode",
         lowercase=True,
+        sublinear_tf=True,  # log-normalization on term frequencies
     )
     X_train = vectorizer.fit_transform(X_train_texts)
-    X_val = vectorizer.transform(X_val_texts)
-    X_test = vectorizer.transform(X_test_texts)
+    X_val   = vectorizer.transform(X_val_texts)
+    X_test  = vectorizer.transform(X_test_texts)
 
     # Create output directory
     FEATURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
