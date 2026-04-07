@@ -31,7 +31,7 @@ training:
   warmup_ratio: 0.1
   gradient_accumulation_steps: 1
   seed: 42
-  fp16: false
+  fp16: true
   save_every_n_steps: 200
   log_every_n_steps: 50
 

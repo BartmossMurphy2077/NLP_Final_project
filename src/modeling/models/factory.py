@@ -18,9 +18,12 @@ def build_tokenizer(model_cfg: ModelConfig):
     return tokenizer
 
 
-def build_classifier_model(model_cfg: ModelConfig):
+def build_classifier_model(
+    model_cfg: ModelConfig, pretrained_name_or_path: str | None = None
+):
+    target = pretrained_name_or_path or model_cfg.name
     model = AutoModelForSequenceClassification.from_pretrained(
-        model_cfg.name,
+        target,
         num_labels=model_cfg.num_labels,
     )
     if model.config.pad_token_id is None and model.config.eos_token_id is not None:

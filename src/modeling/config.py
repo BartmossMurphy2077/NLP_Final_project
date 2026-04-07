@@ -56,6 +56,10 @@ class TrainingConfig:
     gradient_accumulation_steps: int = 1
     seed: int = 42
     fp16: bool = False
+    num_workers: int = 4
+    pin_memory: bool = True
+    resume_from_checkpoint: str | None = None
+    auto_resume_latest_checkpoint: bool = True
     save_every_n_steps: int = 200
     log_every_n_steps: int = 50
 
