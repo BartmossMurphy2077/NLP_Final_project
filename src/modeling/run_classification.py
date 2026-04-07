@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 
+from .env_utils import load_project_env
 from .train_classification import train_from_config
 
 
 def main() -> None:
+    load_project_env()
     parser = argparse.ArgumentParser(
         description="Run transformer sentiment classification training."
     )

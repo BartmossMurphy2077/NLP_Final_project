@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
 import re
+import sys
 
 import torch
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import transformers
 from transformers import get_linear_schedule_with_warmup
 
 from .config import ExperimentConfig, load_experiment_config
@@ -75,7 +78,7 @@ def _move_batch_to_device(
 
 
 def _evaluate(
-    model, loader, device
+    model, loader, device, non_blocking: bool, use_amp: bool
 ) -> tuple[list[int], list[int], list[str], list[str], list[str], list[str], list[str]]:
     model.eval()
     all_gold: list[int] = []
@@ -102,9 +105,12 @@ def _evaluate(
             all_slang_labels.extend(slang_labels)
 
             batch = _move_batch_to_device(batch, device, non_blocking=non_blocking)
-            with torch.autocast(
-                device_type="cuda", dtype=torch.float16, enabled=use_amp
-            ):
+            autocast_ctx = (
+                torch.autocast(device_type="cuda", dtype=torch.float16)
+                if use_amp
+                else nullcontext()
+            )
+            with autocast_ctx:
                 outputs = model(**batch)
             preds = outputs.logits.argmax(dim=-1).detach().cpu().tolist()
             all_pred.extend(preds)
@@ -120,7 +126,9 @@ def _evaluate(
     )
 
 
-def _metrics_summary(gold: list[int], pred: list[int], num_labels: int) -> dict[str, object]:
+def _metrics_summary(
+    gold: list[int], pred: list[int], num_labels: int
+) -> dict[str, object]:
     return {
         "accuracy": accuracy(gold, pred),
         "macro_f1": macro_f1(gold, pred, num_labels),
@@ -152,7 +160,7 @@ def _slice_by_group(
     }
 
 
-def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
+def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, object]:
     set_seed(cfg.training.seed)
 
     out_dir = ensure_dir(cfg.training.output_dir)
@@ -181,6 +189,19 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
         + (f" ({torch.cuda.get_device_name(0)})" if device.type == "cuda" else "")
         + f" | fp16={use_amp} | num_workers={data_num_workers} | pin_memory={pin_memory}"
     )
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+
+    environment_provenance = {
+        "python_version": sys.version.split()[0],
+        "torch_version": torch.__version__,
+        "transformers_version": transformers.__version__,
+        "device": str(device),
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_device_name": (
+            torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
+        ),
+    }
+
     if resume_checkpoint is not None:
         print(f"Resuming weights from checkpoint: {resume_checkpoint}")
 
@@ -262,11 +283,17 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
 
         for batch_idx, batch in enumerate(pbar, start=1):
             batch.pop("sample_id", None)
+            batch.pop("base_id", None)
             batch.pop("raw_text", None)
+            batch.pop("text_variant", None)
+            batch.pop("slang_label", None)
             batch = _move_batch_to_device(batch, device, non_blocking=non_blocking)
-            with torch.autocast(
-                device_type="cuda", dtype=torch.float16, enabled=use_amp
-            ):
+            autocast_ctx = (
+                torch.autocast(device_type="cuda", dtype=torch.float16)
+                if use_amp
+                else nullcontext()
+            )
+            with autocast_ctx:
                 outputs = model(**batch)
                 loss = outputs.loss / max(1, cfg.training.gradient_accumulation_steps)
             scaler.scale(loss).backward()
@@ -291,7 +318,9 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
                 model.save_pretrained(ckpt_dir)
                 tokenizer.save_pretrained(ckpt_dir)
 
-        val_gold, val_pred, _, _, _, _, _ = _evaluate(model, val_loader, device)
+        val_gold, val_pred, _, _, _, _, _ = _evaluate(
+            model, val_loader, device, non_blocking=non_blocking, use_amp=use_amp
+        )
         val_acc = accuracy(val_gold, val_pred)
         val_f1 = macro_f1(val_gold, val_pred, cfg.model.num_labels)
 
@@ -327,7 +356,9 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
         test_texts,
         test_text_variants,
         test_slang_labels,
-    ) = _evaluate(model, test_loader, device)
+    ) = _evaluate(
+        model, test_loader, device, non_blocking=non_blocking, use_amp=use_amp
+    )
     test_summary = _metrics_summary(test_gold, test_pred, cfg.model.num_labels)
 
     prediction_rows, misclassified_rows = build_prediction_rows(
@@ -346,7 +377,11 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
             test_gold, test_pred, test_slang_labels, "slang_label", cfg.model.num_labels
         ),
         "text_variant": _slice_by_group(
-            test_gold, test_pred, test_text_variants, "text_variant", cfg.model.num_labels
+            test_gold,
+            test_pred,
+            test_text_variants,
+            "text_variant",
+            cfg.model.num_labels,
         ),
     }
 
@@ -358,6 +393,7 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
     summary = {
         "experiment_name": cfg.experiment_name,
         "config": asdict(cfg),
+        "environment": environment_provenance,
         "test_accuracy": test_summary["accuracy"],
         "test_macro_f1": test_summary["macro_f1"],
         "num_test_samples": len(test_gold),
@@ -379,9 +415,10 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
         "test_accuracy": float(test_summary["accuracy"]),
         "test_macro_f1": float(test_summary["macro_f1"]),
         "num_test_samples": float(len(test_gold)),
+        "environment": environment_provenance,
     }
 
 
-def train_from_config(config_path: str) -> dict[str, float]:
+def train_from_config(config_path: str) -> dict[str, object]:
     cfg: ExperimentConfig = load_experiment_config(config_path)
     return train_from_experiment_config(cfg)

@@ -14,6 +14,7 @@ from transformers import (
 )
 
 from .config import load_experiment_config
+from .env_utils import load_project_env
 from .models import build_dapt_model, build_tokenizer
 from .seed import set_seed
 
@@ -94,6 +95,7 @@ def run_dapt(config_path: str) -> None:
 
 
 def main() -> None:
+    load_project_env()
     parser = argparse.ArgumentParser(
         description="Run domain-adaptive pretraining for GPT."
     )

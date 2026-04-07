@@ -53,6 +53,13 @@ The repository now includes a modular modeling stack in `src/modeling/` with:
 pip install -r src/modeling/requirements_modeling.txt
 ```
 
+### Optional Hugging Face Auth via .env
+
+1. Copy `.env.example` to `.env` in the repository root.
+2. Set `HF_TOKEN` in `.env`.
+
+All modeling entrypoints automatically load `.env`, so no manual `set`/`export` is required before running commands.
+
 ### Baseline Training
 
 ```bash
@@ -95,6 +102,20 @@ python -m src.modeling.run_multiseed --config configs/modeling/bert_base_baselin
 
 This writes per-seed runs under the config's output directory and an aggregate summary at `.../logs/multiseed/multiseed_summary.json`.
 
+### Full Core Experiment Matrix (3 Models x 3 Variants x 3 Seeds)
+
+```bash
+python -m src.modeling.run_experiment_matrix --seeds 42 43 44
+```
+
+Use `--dry-run` to print and record commands without starting training:
+
+```bash
+python -m src.modeling.run_experiment_matrix --seeds 42 43 44 --dry-run
+```
+
+This writes a run manifest to `outputs/modeling/matrix_runs/matrix_manifest.json`.
+
 ### Ablation Options
 
 Use the experiment config to toggle:
@@ -118,3 +139,22 @@ To flatten completed runs into a comparison table:
 ```bash
 python -m src.modeling.summarize_runs --root outputs/modeling --output outputs/modeling/run_summary_table.csv
 ```
+
+To create a mean/std table from multi-seed aggregates:
+
+```bash
+python -m src.modeling.summarize_multiseed --root outputs/modeling --output outputs/modeling/multiseed_summary_table.csv
+```
+
+### Paired Significance Between Two Runs
+
+Compare two `predictions_test.csv` files on matched examples (`base_id` when available):
+
+```bash
+python -m src.modeling.paired_significance \
+  --a outputs/modeling/bert_base/logs/seed_42/predictions_test.csv \
+  --b outputs/modeling/bert_base_slang_masked/logs/seed_42/predictions_test.csv \
+  --output outputs/modeling/paired_significance_bert_base_seed42.json
+```
+
+The output JSON includes paired accuracy difference, McNemar p-value, sign-test p-value, and a bootstrap CI.
