@@ -7,7 +7,7 @@ data:
   label_column: sentiment_label
   text_column: text_for_model
   variant_column: text_variant
-  allowed_variants: [slang_masked, mixed]
+  allowed_variants: [slang_masked]
   slang_column: slang_label
   allowed_slang_labels: [slang_heavy]
   split_map:

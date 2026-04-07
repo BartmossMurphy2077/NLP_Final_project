@@ -56,7 +56,7 @@ def run_dapt(config_path: str) -> None:
         return tokenizer(
             batch["text"],
             truncation=True,
-            max_length=cfg.model.max_length,
+            max_length=cfg.dapt.block_size,
         )
 
     tokenized = corpus.map(_tokenize, batched=True, remove_columns=["text"])

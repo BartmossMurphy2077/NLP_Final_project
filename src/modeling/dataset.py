@@ -19,6 +19,7 @@ LABEL_TO_ID = {"negative": 0, "neutral": 1, "positive": 2}
 @dataclass
 class Sample:
     sample_id: str
+    base_id: str
     text: str
     label: int
     split: str
@@ -32,12 +33,18 @@ class SentimentDataset(Dataset):
         encodings: dict[str, torch.Tensor],
         labels: torch.Tensor,
         ids: list[str],
+        base_ids: list[str],
         texts: list[str],
+        text_variants: list[str],
+        slang_labels: list[str],
     ):
         self.encodings = encodings
         self.labels = labels
         self.ids = ids
+        self.base_ids = base_ids
         self.texts = texts
+        self.text_variants = text_variants
+        self.slang_labels = slang_labels
 
     def __len__(self) -> int:
         return self.labels.shape[0]
@@ -46,7 +53,10 @@ class SentimentDataset(Dataset):
         item = {key: val[idx] for key, val in self.encodings.items()}
         item["labels"] = self.labels[idx]
         item["sample_id"] = self.ids[idx]
+        item["base_id"] = self.base_ids[idx]
         item["raw_text"] = self.texts[idx]
+        item["text_variant"] = self.text_variants[idx]
+        item["slang_label"] = self.slang_labels[idx]
         return item
 
 
@@ -108,6 +118,7 @@ def load_samples(
             samples.append(
                 Sample(
                     sample_id=row["id"],
+                    base_id=(row.get("base_id") or row["id"]),
                     text=text,
                     label=LABEL_TO_ID[label_text],
                     split=split_name,
@@ -115,6 +126,12 @@ def load_samples(
                     slang_label=slang_label,
                 )
             )
+
+    if not samples:
+        raise ValueError(
+            f"No samples matched split='{split_name}', variants={data_cfg.allowed_variants}, "
+            f"slang_labels={data_cfg.allowed_slang_labels or 'ALL'} in {csv_path}"
+        )
 
     return samples
 
@@ -125,6 +142,9 @@ def tokenize_samples(
     texts = [sample.text for sample in samples]
     labels = torch.tensor([sample.label for sample in samples], dtype=torch.long)
     ids = [sample.sample_id for sample in samples]
+    base_ids = [sample.base_id for sample in samples]
+    text_variants = [sample.text_variant for sample in samples]
+    slang_labels = [sample.slang_label for sample in samples]
     encodings = tokenizer(
         texts,
         truncation=True,
@@ -132,4 +152,12 @@ def tokenize_samples(
         max_length=max_length,
         return_tensors="pt",
     )
-    return SentimentDataset(encodings=encodings, labels=labels, ids=ids, texts=texts)
+    return SentimentDataset(
+        encodings=encodings,
+        labels=labels,
+        ids=ids,
+        base_ids=base_ids,
+        texts=texts,
+        text_variants=text_variants,
+        slang_labels=slang_labels,
+    )

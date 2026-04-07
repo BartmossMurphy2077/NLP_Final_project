@@ -1,11 +1,12 @@
 {
-  "created_at_utc": "2026-03-16T14:47:32.243965+00:00",
-  "input_file": "/Users/arimoreira/NLP/NLP_Final_project/data/interim/canonical_cleaned.csv",
+  "created_at_utc": "2026-04-07T13:57:15.179584+00:00",
+  "input_file": "C:\\Users\\nikol\\Documents\\Uni\\NLP\\NLP_Final_project\\data\\interim\\canonical_cleaned.csv",
   "outputs": {
-    "sentiment_base": "/Users/arimoreira/NLP/NLP_Final_project/data/processed/sentiment_preprocessed.csv",
-    "sentiment_variants": "/Users/arimoreira/NLP/NLP_Final_project/data/processed/sentiment_preprocessed_variants.csv",
-    "sarcasm_auxiliary": "/Users/arimoreira/NLP/NLP_Final_project/data/processed/sarcasm_auxiliary_preprocessed.csv",
-    "split_manifest": "/Users/arimoreira/NLP/NLP_Final_project/data/splits/split_manifest.json"
+    "sentiment_base": "C:\\Users\\nikol\\Documents\\Uni\\NLP\\NLP_Final_project\\data\\processed\\sentiment_preprocessed.csv",
+    "sentiment_variants": "C:\\Users\\nikol\\Documents\\Uni\\NLP\\NLP_Final_project\\data\\processed\\sentiment_preprocessed_variants.csv",
+    "sarcasm_auxiliary": "C:\\Users\\nikol\\Documents\\Uni\\NLP\\NLP_Final_project\\data\\processed\\sarcasm_auxiliary_preprocessed.csv",
+    "dapt_train_corpus": "C:\\Users\\nikol\\Documents\\Uni\\NLP\\NLP_Final_project\\data\\processed\\dapt_train_corpus.csv",
+    "split_manifest": "C:\\Users\\nikol\\Documents\\Uni\\NLP\\NLP_Final_project\\data\\splits\\split_manifest.json"
   },
   "counts": {
     "input_rows_by_task_type": {
@@ -14,11 +15,17 @@
     },
     "sentiment_rows": 44893,
     "sarcasm_rows": 28503,
+    "dapt_train_corpus_rows": 35911,
     "sentiment_variant_rows": 134679,
     "split_counts": {
-      "train": 35910,
-      "val": 4485,
-      "test": 4498
+      "train": 35911,
+      "val": 4486,
+      "test": 4496
+    },
+    "sentiment_label_distribution": {
+      "neutral": 8314,
+      "positive": 19566,
+      "negative": 17013
     },
     "slang_label_distribution_sentiment": {
       "formal": 23139,
