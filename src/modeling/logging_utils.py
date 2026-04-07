@@ -36,18 +36,26 @@ def write_predictions(path: str | Path, rows: list[dict[str, str]]) -> None:
 
 def build_prediction_rows(
     ids: list[str],
+    base_ids: list[str],
     texts: list[str],
     gold_labels: list[int],
     pred_labels: list[int],
     split_name: str,
+    text_variants: list[str],
+    slang_labels: list[str],
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     all_rows: list[dict[str, str]] = []
     bad_rows: list[dict[str, str]] = []
 
-    for sample_id, text, gold, pred in zip(ids, texts, gold_labels, pred_labels):
+    for sample_id, base_id, text, gold, pred, text_variant, slang_label in zip(
+        ids, base_ids, texts, gold_labels, pred_labels, text_variants, slang_labels
+    ):
         row = {
             "id": sample_id,
+            "base_id": base_id,
             "split": split_name,
+            "text_variant": text_variant,
+            "slang_label": slang_label,
             "text": text,
             "gold_label": ID_TO_LABEL[gold],
             "pred_label": ID_TO_LABEL[pred],

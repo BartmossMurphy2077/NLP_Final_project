@@ -61,6 +61,15 @@ python -m src.modeling.run_classification --config configs/modeling/bertweet_bas
 python -m src.modeling.run_classification --config configs/modeling/gpt_classification_baseline.yaml
 ```
 
+Variant-specific baseline configs are also available for `slang_masked` and `mixed` comparisons:
+
+- `configs/modeling/bert_base_slang_masked.yaml`
+- `configs/modeling/bert_base_mixed.yaml`
+- `configs/modeling/bertweet_slang_masked.yaml`
+- `configs/modeling/bertweet_mixed.yaml`
+- `configs/modeling/gpt_classification_slang_masked.yaml`
+- `configs/modeling/gpt_classification_mixed.yaml`
+
 ### GPT Domain Adaptation (DAPT)
 
 ```bash
@@ -76,6 +85,16 @@ python -m src.modeling.run_gpt_finetune --config configs/modeling/gpt_finetune_s
 python -m src.modeling.run_gpt_finetune --config configs/modeling/gpt_finetune_slang_mixed.yaml
 ```
 
+Each slang-focused finetuning config now uses exactly one text variant so validation/test metrics stay on unique base examples.
+
+### Multi-Seed Training
+
+```bash
+python -m src.modeling.run_multiseed --config configs/modeling/bert_base_baseline.yaml --seeds 42 43 44
+```
+
+This writes per-seed runs under the config's output directory and an aggregate summary at `.../logs/multiseed/multiseed_summary.json`.
+
 ### Ablation Options
 
 Use the experiment config to toggle:
@@ -90,4 +109,12 @@ Each run writes outputs under `outputs/modeling/...` including:
 - checkpoints and final model weights
 - `predictions_test.csv`
 - `misclassified_test.csv`
+- `test_metrics_detailed.json`
+- `test_metrics_by_group.json`
 - per-epoch metric logs and `run_summary.json`
+
+To flatten completed runs into a comparison table:
+
+```bash
+python -m src.modeling.summarize_runs --root outputs/modeling --output outputs/modeling/run_summary_table.csv
+```

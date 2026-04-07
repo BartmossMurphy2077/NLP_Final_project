@@ -1,0 +1,53 @@
+experiment_name: bertweet_slang_masked
+task: classification
+
+data:
+  input_csv: data/processed/sentiment_preprocessed_variants.csv
+  split_column: split
+  label_column: sentiment_label
+  text_column: text_for_model
+  variant_column: text_variant
+  allowed_variants: [slang_masked]
+  split_map:
+    train: train
+    val: val
+    test: test
+
+model:
+  name: vinai/bertweet-base
+  model_type: bertweet_classifier
+  tokenizer_name: vinai/bertweet-base
+  num_labels: 3
+  max_length: 128
+  dropout: 0.1
+
+training:
+  output_dir: outputs/modeling/bertweet_slang_masked
+  batch_size: 16
+  eval_batch_size: 32
+  epochs: 3
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  gradient_accumulation_steps: 1
+  seed: 42
+  fp16: false
+  save_every_n_steps: 200
+  log_every_n_steps: 50
+
+logging:
+  run_name: bertweet_slang_masked
+  output_dir: outputs/modeling/bertweet_slang_masked/logs
+  save_predictions: true
+  save_misclassified: true
+
+ablation:
+  remove_profanity: false
+  remove_emojis: false
+
+masking:
+  mode: slang_masked
+  mask_token: "[SLANG]"
+
+dapt:
+  enabled: false

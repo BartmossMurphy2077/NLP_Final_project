@@ -20,9 +20,11 @@ from .logging_utils import (
     write_json,
     write_predictions,
 )
-from .metrics import accuracy, macro_f1
+from .metrics import accuracy, confusion_matrix, macro_f1, per_class_report
 from .models import build_classifier_model, build_tokenizer
 from .seed import set_seed
+
+LABEL_NAMES = {0: "negative", 1: "neutral", 2: "positive"}
 
 
 def _device() -> torch.device:
@@ -31,32 +33,80 @@ def _device() -> torch.device:
 
 def _evaluate(
     model, loader, device
-) -> tuple[list[int], list[int], list[str], list[str]]:
+) -> tuple[list[int], list[int], list[str], list[str], list[str], list[str], list[str]]:
     model.eval()
     all_gold: list[int] = []
     all_pred: list[int] = []
     all_ids: list[str] = []
+    all_base_ids: list[str] = []
     all_texts: list[str] = []
+    all_text_variants: list[str] = []
+    all_slang_labels: list[str] = []
 
     with torch.no_grad():
         for batch in loader:
             ids = batch.pop("sample_id")
+            base_ids = batch.pop("base_id")
             texts = batch.pop("raw_text")
+            text_variants = batch.pop("text_variant")
+            slang_labels = batch.pop("slang_label")
             labels = batch["labels"]
             all_gold.extend(labels.tolist())
             all_ids.extend(ids)
+            all_base_ids.extend(base_ids)
             all_texts.extend(texts)
+            all_text_variants.extend(text_variants)
+            all_slang_labels.extend(slang_labels)
 
             batch = {k: v.to(device) for k, v in batch.items()}
             outputs = model(**batch)
             preds = outputs.logits.argmax(dim=-1).detach().cpu().tolist()
             all_pred.extend(preds)
 
-    return all_gold, all_pred, all_ids, all_texts
+    return (
+        all_gold,
+        all_pred,
+        all_ids,
+        all_base_ids,
+        all_texts,
+        all_text_variants,
+        all_slang_labels,
+    )
 
 
-def train_from_config(config_path: str) -> dict[str, float]:
-    cfg: ExperimentConfig = load_experiment_config(config_path)
+def _metrics_summary(gold: list[int], pred: list[int], num_labels: int) -> dict[str, object]:
+    return {
+        "accuracy": accuracy(gold, pred),
+        "macro_f1": macro_f1(gold, pred, num_labels),
+        "per_class": per_class_report(gold, pred, LABEL_NAMES),
+        "confusion_matrix": confusion_matrix(gold, pred, num_labels),
+        "support": len(gold),
+    }
+
+
+def _slice_by_group(
+    gold: list[int],
+    pred: list[int],
+    values: list[str],
+    group_name: str,
+    num_labels: int,
+) -> dict[str, dict[str, object]]:
+    grouped: dict[str, dict[str, list[int]]] = {}
+    for g, p, value in zip(gold, pred, values):
+        bucket = grouped.setdefault(value, {"gold": [], "pred": []})
+        bucket["gold"].append(g)
+        bucket["pred"].append(p)
+
+    return {
+        key: {
+            "group_by": group_name,
+            **_metrics_summary(payload["gold"], payload["pred"], num_labels),
+        }
+        for key, payload in grouped.items()
+    }
+
+
+def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, float]:
     set_seed(cfg.training.seed)
 
     out_dir = ensure_dir(cfg.training.output_dir)
@@ -157,7 +207,7 @@ def train_from_config(config_path: str) -> dict[str, float]:
                 model.save_pretrained(ckpt_dir)
                 tokenizer.save_pretrained(ckpt_dir)
 
-        val_gold, val_pred, _, _ = _evaluate(model, val_loader, device)
+        val_gold, val_pred, _, _, _, _, _ = _evaluate(model, val_loader, device)
         val_acc = accuracy(val_gold, val_pred)
         val_f1 = macro_f1(val_gold, val_pred, cfg.model.num_labels)
 
@@ -185,17 +235,36 @@ def train_from_config(config_path: str) -> dict[str, float]:
     model = build_classifier_model(best_model_cfg).to(device)
     model.eval()
 
-    test_gold, test_pred, test_ids, test_texts = _evaluate(model, test_loader, device)
-    test_acc = accuracy(test_gold, test_pred)
-    test_f1 = macro_f1(test_gold, test_pred, cfg.model.num_labels)
+    (
+        test_gold,
+        test_pred,
+        test_ids,
+        test_base_ids,
+        test_texts,
+        test_text_variants,
+        test_slang_labels,
+    ) = _evaluate(model, test_loader, device)
+    test_summary = _metrics_summary(test_gold, test_pred, cfg.model.num_labels)
 
     prediction_rows, misclassified_rows = build_prediction_rows(
         ids=test_ids,
+        base_ids=test_base_ids,
         texts=test_texts,
         gold_labels=test_gold,
         pred_labels=test_pred,
         split_name="test",
+        text_variants=test_text_variants,
+        slang_labels=test_slang_labels,
     )
+
+    subgroup_summary = {
+        "slang_label": _slice_by_group(
+            test_gold, test_pred, test_slang_labels, "slang_label", cfg.model.num_labels
+        ),
+        "text_variant": _slice_by_group(
+            test_gold, test_pred, test_text_variants, "text_variant", cfg.model.num_labels
+        ),
+    }
 
     if cfg.logging.save_predictions:
         write_predictions(logs_dir / "predictions_test.csv", prediction_rows)
@@ -205,13 +274,17 @@ def train_from_config(config_path: str) -> dict[str, float]:
     summary = {
         "experiment_name": cfg.experiment_name,
         "config": asdict(cfg),
-        "test_accuracy": test_acc,
-        "test_macro_f1": test_f1,
+        "test_accuracy": test_summary["accuracy"],
+        "test_macro_f1": test_summary["macro_f1"],
         "num_test_samples": len(test_gold),
         "best_checkpoint_path": str(best_dir),
         "test_evaluated_from": "best_model",
+        "test_metrics": test_summary,
+        "test_metrics_by_group": subgroup_summary,
     }
     write_json(logs_dir / "run_summary.json", summary)
+    write_json(logs_dir / "test_metrics_detailed.json", summary["test_metrics"])
+    write_json(logs_dir / "test_metrics_by_group.json", subgroup_summary)
 
     final_dir = Path(cfg.training.output_dir) / "final_model"
     final_dir.mkdir(parents=True, exist_ok=True)
@@ -219,7 +292,12 @@ def train_from_config(config_path: str) -> dict[str, float]:
     tokenizer.save_pretrained(final_dir)
 
     return {
-        "test_accuracy": test_acc,
-        "test_macro_f1": test_f1,
+        "test_accuracy": float(test_summary["accuracy"]),
+        "test_macro_f1": float(test_summary["macro_f1"]),
         "num_test_samples": float(len(test_gold)),
     }
+
+
+def train_from_config(config_path: str) -> dict[str, float]:
+    cfg: ExperimentConfig = load_experiment_config(config_path)
+    return train_from_experiment_config(cfg)
