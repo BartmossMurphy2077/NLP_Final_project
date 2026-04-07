@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
 
@@ -122,6 +123,7 @@ def train_from_config(config_path: str) -> dict[str, float]:
 
     global_step = 0
     best_val_f1 = -1.0
+    best_dir = out_dir / "best_model"
 
     for epoch in range(cfg.training.epochs):
         model.train()
@@ -161,7 +163,6 @@ def train_from_config(config_path: str) -> dict[str, float]:
 
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
-            best_dir = out_dir / "best_model"
             best_dir.mkdir(parents=True, exist_ok=True)
             model.save_pretrained(best_dir)
             tokenizer.save_pretrained(best_dir)
@@ -175,6 +176,14 @@ def train_from_config(config_path: str) -> dict[str, float]:
                 "val_macro_f1": val_f1,
             },
         )
+
+    if not best_dir.exists():
+        raise RuntimeError("Best checkpoint was not saved; cannot run test evaluation.")
+
+    best_model_cfg = deepcopy(cfg.model)
+    best_model_cfg.name = str(best_dir)
+    model = build_classifier_model(best_model_cfg).to(device)
+    model.eval()
 
     test_gold, test_pred, test_ids, test_texts = _evaluate(model, test_loader, device)
     test_acc = accuracy(test_gold, test_pred)
@@ -199,6 +208,8 @@ def train_from_config(config_path: str) -> dict[str, float]:
         "test_accuracy": test_acc,
         "test_macro_f1": test_f1,
         "num_test_samples": len(test_gold),
+        "best_checkpoint_path": str(best_dir),
+        "test_evaluated_from": "best_model",
     }
     write_json(logs_dir / "run_summary.json", summary)
 

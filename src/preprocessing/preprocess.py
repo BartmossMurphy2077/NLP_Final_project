@@ -21,6 +21,7 @@ SENTIMENT_OUTPUT_PATH = PROCESSED_DIR / "sentiment_preprocessed.csv"
 SENTIMENT_VARIANTS_OUTPUT_PATH = PROCESSED_DIR / "sentiment_preprocessed_variants.csv"
 SARCASM_AUX_OUTPUT_PATH = PROCESSED_DIR / "sarcasm_auxiliary_preprocessed.csv"
 SUMMARY_OUTPUT_PATH = PROCESSED_DIR / "preprocessing_summary.json"
+DAPT_TRAIN_CORPUS_PATH = PROCESSED_DIR / "dapt_train_corpus.csv"
 SPLIT_MANIFEST_PATH = SPLITS_DIR / "split_manifest.json"
 TRAIN_IDS_PATH = SPLITS_DIR / "train_ids.txt"
 VAL_IDS_PATH = SPLITS_DIR / "val_ids.txt"
@@ -69,6 +70,15 @@ SARCASM_AUX_FIELDS = [
     "task_type",
     "slang_term_count",
     "informal_signal_count",
+]
+
+DAPT_TRAIN_CORPUS_FIELDS = [
+    "id",
+    "text_clean",
+    "source",
+    "sentiment_label",
+    "slang_label",
+    "split",
 ]
 
 WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z']*")
@@ -145,6 +155,14 @@ SLANG_LEXICON = {
     "wtf",
     "yall",
     "yeet",
+}
+
+SENTIMENT_LABEL_MAP = {
+    "extremely negative": "negative",
+    "negative": "negative",
+    "neutral": "neutral",
+    "positive": "positive",
+    "extremely positive": "positive",
 }
 
 
@@ -237,6 +255,11 @@ def _stable_hash(seed: int, text: str) -> int:
     return int(digest, 16)
 
 
+def _normalize_sentiment_label(label: str) -> str | None:
+    normalized = label.strip().lower()
+    return SENTIMENT_LABEL_MAP.get(normalized)
+
+
 def _assign_splits_stratified(
     rows: list[dict[str, str]],
     train_ratio: float,
@@ -249,7 +272,7 @@ def _assign_splits_stratified(
 
     grouped: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     for row in rows:
-        key = (row["task_label"], row["slang_label"])
+        key = (row["sentiment_label"], row["slang_label"])
         grouped[key].append(row)
 
     assignments: dict[str, str] = {}
@@ -319,6 +342,10 @@ def main() -> None:
             }
 
             if task_type == "sentiment":
+                sentiment_label = _normalize_sentiment_label(row["task_label"])
+                if sentiment_label is None:
+                    continue
+                row_base["sentiment_label"] = sentiment_label
                 sentiment_rows.append(row_base)
             elif task_type == "sarcasm":
                 sarcasm_rows.append(row_base)
@@ -334,7 +361,6 @@ def main() -> None:
 
     for row in sentiment_rows:
         row["split"] = split_assignments[row["id"]]
-        row["sentiment_label"] = row["task_label"]
 
     for row in sarcasm_rows:
         row["split"] = "auxiliary"
@@ -409,6 +435,23 @@ def main() -> None:
                 }
             )
 
+    with DAPT_TRAIN_CORPUS_PATH.open("w", encoding="utf-8", newline="") as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=DAPT_TRAIN_CORPUS_FIELDS)
+        writer.writeheader()
+        for row in sentiment_rows:
+            if row["split"] != "train":
+                continue
+            writer.writerow(
+                {
+                    "id": row["id"],
+                    "text_clean": row["text_clean"],
+                    "source": row["source"],
+                    "sentiment_label": row["sentiment_label"],
+                    "slang_label": row["slang_label"],
+                    "split": row["split"],
+                }
+            )
+
     split_manifest = {
         "dataset_version": "v0.2.0",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -437,18 +480,23 @@ def main() -> None:
             "sentiment_base": str(SENTIMENT_OUTPUT_PATH),
             "sentiment_variants": str(SENTIMENT_VARIANTS_OUTPUT_PATH),
             "sarcasm_auxiliary": str(SARCASM_AUX_OUTPUT_PATH),
+            "dapt_train_corpus": str(DAPT_TRAIN_CORPUS_PATH),
             "split_manifest": str(SPLIT_MANIFEST_PATH),
         },
         "counts": {
             "input_rows_by_task_type": dict(task_type_counts),
             "sentiment_rows": len(sentiment_rows),
             "sarcasm_rows": len(sarcasm_rows),
+            "dapt_train_corpus_rows": len(train_ids),
             "sentiment_variant_rows": len(sentiment_rows) * 3,
             "split_counts": {
                 "train": len(train_ids),
                 "val": len(val_ids),
                 "test": len(test_ids),
             },
+            "sentiment_label_distribution": dict(
+                Counter(row["sentiment_label"] for row in sentiment_rows)
+            ),
             "slang_label_distribution_sentiment": dict(
                 Counter(row["slang_label"] for row in sentiment_rows)
             ),
@@ -470,6 +518,7 @@ def main() -> None:
     print(f"[preprocess] Sentiment base output: {SENTIMENT_OUTPUT_PATH}")
     print(f"[preprocess] Sentiment variants output: {SENTIMENT_VARIANTS_OUTPUT_PATH}")
     print(f"[preprocess] Sarcasm auxiliary output: {SARCASM_AUX_OUTPUT_PATH}")
+    print(f"[preprocess] DAPT train corpus output: {DAPT_TRAIN_CORPUS_PATH}")
     print(f"[preprocess] Split manifest: {SPLIT_MANIFEST_PATH}")
     print(
         f"[preprocess] Sentiment splits -> train: {len(train_ids)}, val: {len(val_ids)}, test: {len(test_ids)}"

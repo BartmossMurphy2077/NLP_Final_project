@@ -116,6 +116,12 @@ def load_samples(
                 )
             )
 
+    if not samples:
+        raise ValueError(
+            f"No samples matched split='{split_name}', variants={data_cfg.allowed_variants}, "
+            f"slang_labels={data_cfg.allowed_slang_labels or 'ALL'} in {csv_path}"
+        )
+
     return samples
 
 
