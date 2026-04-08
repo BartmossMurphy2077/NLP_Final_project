@@ -74,6 +74,7 @@ def run_dapt(config_path: str) -> None:
         num_train_epochs=cfg.training.epochs,
         weight_decay=cfg.training.weight_decay,
         save_steps=cfg.training.save_every_n_steps,
+        save_total_limit=max(1, int(getattr(cfg.training, "save_total_limit", 2))),
         logging_steps=cfg.training.log_every_n_steps,
         seed=cfg.training.seed,
         fp16=cfg.training.fp16,
