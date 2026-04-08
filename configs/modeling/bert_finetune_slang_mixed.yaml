@@ -1,0 +1,56 @@
+experiment_name: bert_finetune_slang_heavy_mixed
+task: classification
+
+data:
+  input_csv: data/processed/sentiment_preprocessed_variants.csv
+  split_column: split
+  label_column: sentiment_label
+  text_column: text_for_model
+  variant_column: text_variant
+  slang_column: slang_label
+  allowed_variants: [mixed]
+  allowed_slang_labels: [slang_heavy]
+  split_map:
+    train: train
+    val: val
+    test: test
+
+model:
+  name: bert-base-uncased
+  model_type: bert_classifier
+  tokenizer_name: bert-base-uncased
+  num_labels: 3
+  max_length: 128
+  dropout: 0.1
+
+training:
+  output_dir: outputs/modeling/bert_finetune_slang_mixed
+  batch_size: 16
+  eval_batch_size: 32
+  epochs: 3
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  gradient_accumulation_steps: 1
+  seed: 42
+  fp16: true
+  save_every_n_steps: 1000
+  save_total_limit: 2
+  log_every_n_steps: 50
+
+logging:
+  run_name: bert_finetune_slang_heavy_mixed
+  output_dir: outputs/modeling/bert_finetune_slang_mixed/logs
+  save_predictions: true
+  save_misclassified: true
+
+ablation:
+  remove_profanity: false
+  remove_emojis: false
+
+masking:
+  mode: mixed
+  mask_token: "[SLANG]"
+
+dapt:
+  enabled: false
