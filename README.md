@@ -94,6 +94,15 @@ python -m src.modeling.run_gpt_finetune --config configs/modeling/gpt_finetune_s
 
 Each slang-focused finetuning config now uses exactly one text variant so validation/test metrics stay on unique base examples.
 
+### BERT Slang-Heavy Fine-Tuning
+
+```bash
+python -m src.modeling.run_multiseed --config configs/modeling/bert_finetune_slang.yaml --seeds 42 43 44
+python -m src.modeling.run_multiseed --config configs/modeling/bert_finetune_slang_mixed.yaml --seeds 42 43 44
+```
+
+These configs target slang-heavy examples only (`allowed_slang_labels: [slang_heavy]`) and keep checkpoint storage bounded (`save_total_limit: 2`).
+
 ### Multi-Seed Training
 
 ```bash
