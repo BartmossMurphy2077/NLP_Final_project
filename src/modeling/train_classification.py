@@ -5,9 +5,13 @@ from __future__ import annotations
 from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import asdict
+import json
+import os
 from pathlib import Path
 import re
+import shutil
 import sys
+import warnings
 
 import torch
 from torch.optim import AdamW
@@ -30,6 +34,47 @@ from .seed import set_seed
 
 LABEL_NAMES = {0: "negative", 1: "neutral", 2: "positive"}
 
+warnings.filterwarnings(
+    "ignore",
+    message=r".*expandable_segments not supported on this platform.*",
+)
+
+
+def _checkpoint_is_valid(path: Path) -> bool:
+    if not (path / "config.json").exists():
+        return False
+
+    index_file = path / "model.safetensors.index.json"
+    if index_file.exists():
+        try:
+            with index_file.open("r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            weight_map = payload.get("weight_map", {})
+            shard_names = set(weight_map.values())
+            if not shard_names:
+                return False
+            for shard_name in shard_names:
+                if not (path / shard_name).exists():
+                    return False
+        except Exception:
+            return False
+
+    safetensors_files = list(path.glob("*.safetensors"))
+    bin_files = list(path.glob("*.bin"))
+    if not safetensors_files and not bin_files and not index_file.exists():
+        return False
+
+    # Lightweight file sanity checks only; deeper deserialization checks happen
+    # at model load time where failures are caught and recorded per config.
+    for shard_file in safetensors_files + bin_files:
+        try:
+            if shard_file.stat().st_size <= 0:
+                return False
+        except OSError:
+            return False
+
+    return True
+
 
 def _device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -45,7 +90,12 @@ def _latest_checkpoint_dir(out_dir: Path) -> Path | None:
             candidates.append((int(match.group(1)), entry))
     if not candidates:
         return None
-    return max(candidates, key=lambda item: item[0])[1]
+
+    for _, checkpoint_dir in sorted(candidates, key=lambda item: item[0], reverse=True):
+        if _checkpoint_is_valid(checkpoint_dir):
+            return checkpoint_dir
+        print(f"Skipping invalid checkpoint directory: {checkpoint_dir}")
+    return None
 
 
 def _resolve_resume_checkpoint(cfg: ExperimentConfig, out_dir: Path) -> Path | None:
@@ -53,6 +103,10 @@ def _resolve_resume_checkpoint(cfg: ExperimentConfig, out_dir: Path) -> Path | N
         explicit = Path(cfg.training.resume_from_checkpoint)
         if not explicit.exists():
             raise FileNotFoundError(f"Requested checkpoint does not exist: {explicit}")
+        if not _checkpoint_is_valid(explicit):
+            raise RuntimeError(
+                f"Requested checkpoint is invalid or corrupted: {explicit}"
+            )
         return explicit
     if cfg.training.auto_resume_latest_checkpoint:
         return _latest_checkpoint_dir(out_dir)
@@ -66,6 +120,26 @@ def _parse_step_from_checkpoint_name(path: Path | None) -> int:
     if match:
         return int(match.group(1))
     return 0
+
+
+def _prune_old_checkpoints(out_dir: Path, keep_last: int) -> None:
+    if keep_last <= 0:
+        return
+
+    candidates: list[tuple[int, Path]] = []
+    for entry in out_dir.glob("checkpoint-step-*"):
+        if not entry.is_dir():
+            continue
+        match = re.match(r"checkpoint-step-(\d+)$", entry.name)
+        if match:
+            candidates.append((int(match.group(1)), entry))
+
+    if len(candidates) <= keep_last:
+        return
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    for _, checkpoint_dir in candidates[keep_last:]:
+        shutil.rmtree(checkpoint_dir, ignore_errors=True)
 
 
 def _move_batch_to_device(
@@ -181,6 +255,15 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, object]:
 
     use_amp = device.type == "cuda" and cfg.training.fp16
     data_num_workers = max(0, cfg.training.num_workers)
+
+    # On Windows, worker subprocesses can fail loading CUDA DLLs under memory pressure.
+    if os.name == "nt" and data_num_workers > 0:
+        print(
+            "Windows detected: forcing num_workers=0 to avoid DataLoader spawn "
+            "OOM/WinError1455 issues."
+        )
+        data_num_workers = 0
+
     pin_memory = bool(cfg.training.pin_memory and device.type == "cuda")
     non_blocking = bool(pin_memory and device.type == "cuda")
 
@@ -189,7 +272,10 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, object]:
         + (f" ({torch.cuda.get_device_name(0)})" if device.type == "cuda" else "")
         + f" | fp16={use_amp} | num_workers={data_num_workers} | pin_memory={pin_memory}"
     )
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    try:
+        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    except (TypeError, AttributeError):
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     environment_provenance = {
         "python_version": sys.version.split()[0],
@@ -278,7 +364,9 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, object]:
     for epoch in range(cfg.training.epochs):
         model.train()
         train_loss = 0.0
-        pbar = tqdm(train_loader, desc=f"epoch={epoch + 1}", leave=False)
+        pbar = tqdm(
+            train_loader, desc=f"epoch={epoch + 1}", leave=False, file=sys.stdout
+        )
         optimizer.zero_grad(set_to_none=True)
 
         for batch_idx, batch in enumerate(pbar, start=1):
@@ -317,6 +405,10 @@ def train_from_experiment_config(cfg: ExperimentConfig) -> dict[str, object]:
                 ckpt_dir.mkdir(parents=True, exist_ok=True)
                 model.save_pretrained(ckpt_dir)
                 tokenizer.save_pretrained(ckpt_dir)
+                _prune_old_checkpoints(
+                    out_dir,
+                    keep_last=max(1, int(getattr(cfg.training, "save_total_limit", 2))),
+                )
 
         val_gold, val_pred, _, _, _, _, _ = _evaluate(
             model, val_loader, device, non_blocking=non_blocking, use_amp=use_amp

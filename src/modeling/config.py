@@ -61,6 +61,7 @@ class TrainingConfig:
     resume_from_checkpoint: str | None = None
     auto_resume_latest_checkpoint: bool = True
     save_every_n_steps: int = 200
+    save_total_limit: int = 2
     log_every_n_steps: int = 50
 
 

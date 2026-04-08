@@ -116,6 +116,22 @@ python -m src.modeling.run_experiment_matrix --seeds 42 43 44 --dry-run
 
 This writes a run manifest to `outputs/modeling/matrix_runs/matrix_manifest.json`.
 
+### Full Resumable Training Pipeline
+
+Run the core matrix with per-seed skip/resume behavior:
+
+```bash
+python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error
+```
+
+Include GPT DAPT and GPT finetuning stages in the same sequential pipeline:
+
+```bash
+python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error --include-dapt --include-gpt-finetune
+```
+
+This writes a manifest to `outputs/modeling/pipeline_runs/full_pipeline_manifest.json` and refreshes summary tables at the end.
+
 ### Ablation Options
 
 Use the experiment config to toggle:
