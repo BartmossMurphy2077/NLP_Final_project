@@ -1,185 +1,222 @@
 # NLP Final Project
 
-## Workflow Layout
+This repository contains the full code pipeline for a sentiment analysis project with slang-aware experimentation:
+
+- canonical data collection and cleaning
+- preprocessing with slang feature signals and text variants
+- transformer modeling (BERT-base, BERTweet, plus GPT baseline for comparison)
+- multi-seed evaluation, summaries, and paired significance tests
+
+## Final Project Scope (What Was Actually Used)
+
+For the final reported modeling results:
+
+- Primary models: BERT-base and BERTweet.
+- GPT was trained as a baseline comparison only.
+- GPT DAPT and GPT slang fine-tuning were not part of the final reported methodology.
+
+## Code Documentation Index
+
+- Main usage guide: `README.md`
+- Detailed module and API-level documentation: `CODE_DOCUMENTATION.md`
+- Data/process reports used in writeups:
+  - `reports/data_collection_cleaning_report.md`
+  - `reports/preprocessing_report.md`
+  - `reports/dataset_card.md`
+
+## Repository Layout
 
 ```text
 data/
   raw/        # Original source files (never modified)
-  interim/    # Cleaned intermediate outputs
-  processed/  # Final modeling-ready datasets + schema
-  splits/     # Fixed train/val/test split manifests
+  interim/    # Ingestion and cleaning outputs
+  processed/  # Modeling-ready datasets and manifests
+  splits/     # train/val/test IDs and split manifest
 src/
   data_collection/
   cleaning/
   preprocessing/
+  modeling/
 configs/
+  data_pipeline.yaml
+  modeling/
+outputs/
+  modeling/
+analysis/
 reports/
 ```
 
-## Quick Start
+## Environment Setup
 
-1. Add source datasets to `data/raw/`.
-2. Implement collection logic in `src/data_collection/collect.py`.
-3. Run cleaning in `src/cleaning/clean.py` to produce `data/interim/`.
-4. Run preprocessing in `src/preprocessing/preprocess.py` to produce `data/processed/` and `data/splits/`.
-5. Document each step in the `reports/` templates.
+### 1) Activate your virtual environment
 
-## Data Contract (handoff)
+PowerShell:
 
-Final modeling-ready data should include:
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-- `id`
-- `text_original`
-- `text_clean`
-- `text_variant` (`original`, `slang_masked`, `mixed`)
-- `sentiment_label`
-- `slang_label` (`slang_heavy`, `formal`)
-- `source`
-- `split` (`train`, `val`, `test`)
+### 2) Install dependencies
 
-## Modeling Scaffold
-
-The repository now includes a modular modeling stack in `src/modeling/` with:
-
-- Baseline classifier pipelines for BERT-base, BERTweet, and GPT
-- Domain-adaptive pretraining (DAPT) entrypoint for GPT on social text
-- Slang-focused GPT fine-tuning configuration
-- Shared data loading, preprocessing transforms, and seed control
-- Prediction and misclassification logging for error analysis
-
-### Install Modeling Dependencies
-
-```bash
+```powershell
 pip install -r src/modeling/requirements_modeling.txt
 ```
 
-### Optional Hugging Face Auth via .env
+### 3) Optional Hugging Face token
 
-1. Copy `.env.example` to `.env` in the repository root.
-2. Set `HF_TOKEN` in `.env`.
+If running GPT baseline comparisons that need Hub access:
 
-All modeling entrypoints automatically load `.env`, so no manual `set`/`export` is required before running commands.
+1. Copy `.env.example` to `.env`.
+2. Set `HF_TOKEN` (or `HUGGINGFACE_HUB_TOKEN`).
 
-### Baseline Training
+All modeling entrypoints load `.env` automatically.
 
-```bash
+## End-to-End Pipeline Commands
+
+Run from repository root.
+
+### Data Collection
+
+```powershell
+python -m src.data_collection.collect
+```
+
+Outputs:
+
+- `data/interim/canonical_ingested.csv`
+- `data/interim/canonical_ingestion_summary.json`
+
+### Data Cleaning
+
+```powershell
+python -m src.cleaning.clean
+```
+
+Outputs:
+
+- `data/interim/canonical_cleaned.csv`
+- `data/interim/canonical_cleaning_summary.json`
+
+### Preprocessing
+
+```powershell
+python -m src.preprocessing.preprocess
+```
+
+Outputs:
+
+- `data/processed/sentiment_preprocessed.csv`
+- `data/processed/sentiment_preprocessed_variants.csv`
+- `data/processed/sarcasm_auxiliary_preprocessed.csv`
+- `data/processed/dapt_train_corpus.csv` (generated but not required for final reported results)
+- `data/processed/preprocessing_summary.json`
+- `data/splits/split_manifest.json`
+
+## Modeling Commands
+
+### Single config run
+
+```powershell
 python -m src.modeling.run_classification --config configs/modeling/bert_base_baseline.yaml
-python -m src.modeling.run_classification --config configs/modeling/bertweet_baseline.yaml
+```
+
+### Multi-seed run
+
+```powershell
+python -m src.modeling.run_multiseed --config configs/modeling/bert_base_baseline.yaml --seeds 42 43 44
+```
+
+### Final Core Matrix (What We Report)
+
+This is the recommended command for the final BERT/BERTweet-focused matrix:
+
+```powershell
+python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error --non-gpt-only
+```
+
+### Full 3x3 model-variant matrix (includes GPT baseline)
+
+```powershell
+python -m src.modeling.run_experiment_matrix --seeds 42 43 44
+```
+
+Dry-run only:
+
+```powershell
+python -m src.modeling.run_experiment_matrix --seeds 42 43 44 --dry-run
+```
+
+### Resumable full training pipeline
+
+Core classification matrix only:
+
+```powershell
+python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error
+```
+
+Run only BERT/BERTweet (recommended for final report):
+
+```powershell
+python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error --non-gpt-only
+```
+
+### GPT Baseline (Comparison-Only)
+
+```powershell
 python -m src.modeling.run_classification --config configs/modeling/gpt_classification_baseline.yaml
 ```
 
-Variant-specific baseline configs are also available for `slang_masked` and `mixed` comparisons:
+### Archived/Optional GPT Adaptation Commands (Not Used In Final Results)
 
-- `configs/modeling/bert_base_slang_masked.yaml`
-- `configs/modeling/bert_base_mixed.yaml`
-- `configs/modeling/bertweet_slang_masked.yaml`
-- `configs/modeling/bertweet_mixed.yaml`
-- `configs/modeling/gpt_classification_slang_masked.yaml`
-- `configs/modeling/gpt_classification_mixed.yaml`
-
-### GPT Domain Adaptation (DAPT)
-
-```bash
+```powershell
 python -m src.modeling.dapt --config configs/modeling/gpt_dapt.yaml
 ```
 
-`configs/modeling/gpt_dapt.yaml` now uses a train-only unlabeled corpus generated by preprocessing at `data/processed/dapt_train_corpus.csv`.
+### Archived/Optional GPT slang-focused fine-tuning
 
-### GPT Slang-Heavy Fine-Tuning
-
-```bash
+```powershell
 python -m src.modeling.run_gpt_finetune --config configs/modeling/gpt_finetune_slang.yaml
 python -m src.modeling.run_gpt_finetune --config configs/modeling/gpt_finetune_slang_mixed.yaml
 ```
 
-Each slang-focused finetuning config now uses exactly one text variant so validation/test metrics stay on unique base examples.
+## Evaluation Utilities
 
-### BERT Slang-Heavy Fine-Tuning
+### Aggregate all run summaries
 
-```bash
-python -m src.modeling.run_multiseed --config configs/modeling/bert_finetune_slang.yaml --seeds 42 43 44
-python -m src.modeling.run_multiseed --config configs/modeling/bert_finetune_slang_mixed.yaml --seeds 42 43 44
+```powershell
+python -m src.modeling.summarize_runs --root outputs/modeling --output outputs/modeling/run_summary_table.csv
+python -m src.modeling.summarize_multiseed --root outputs/modeling --output outputs/modeling/multiseed_summary_table.csv
 ```
 
-These configs target slang-heavy examples only (`allowed_slang_labels: [slang_heavy]`) and keep checkpoint storage bounded (`save_total_limit: 2`).
+### Paired significance testing
 
-### Multi-Seed Training
-
-```bash
-python -m src.modeling.run_multiseed --config configs/modeling/bert_base_baseline.yaml --seeds 42 43 44
+```powershell
+python -m src.modeling.paired_significance --a outputs/modeling/bert_base/logs/seed_42/predictions_test.csv --b outputs/modeling/bert_base_slang_masked/logs/seed_42/predictions_test.csv --output outputs/modeling/paired_significance_bert_vs_slang_seed42.json
 ```
 
-This writes per-seed runs under the config's output directory and an aggregate summary at `.../logs/multiseed/multiseed_summary.json`.
+## Expected Modeling Artifacts
 
-### Full Core Experiment Matrix (3 Models x 3 Variants x 3 Seeds)
-
-```bash
-python -m src.modeling.run_experiment_matrix --seeds 42 43 44
-```
-
-Use `--dry-run` to print and record commands without starting training:
-
-```bash
-python -m src.modeling.run_experiment_matrix --seeds 42 43 44 --dry-run
-```
-
-This writes a run manifest to `outputs/modeling/matrix_runs/matrix_manifest.json`.
-
-### Full Resumable Training Pipeline
-
-Run the core matrix with per-seed skip/resume behavior:
-
-```bash
-python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error
-```
-
-Include GPT DAPT and GPT finetuning stages in the same sequential pipeline:
-
-```bash
-python -m src.modeling.run_full_training_pipeline --seeds 42 43 44 --skip-completed --continue-on-error --include-dapt --include-gpt-finetune
-```
-
-This writes a manifest to `outputs/modeling/pipeline_runs/full_pipeline_manifest.json` and refreshes summary tables at the end.
-
-### Ablation Options
-
-Use the experiment config to toggle:
-
-- `ablation.remove_profanity: true|false`
-- `ablation.remove_emojis: true|false`
-
-### Artifacts
-
-Each run writes outputs under `outputs/modeling/...` including:
+Each run in `outputs/modeling/...` can contain:
 
 - checkpoints and final model weights
 - `predictions_test.csv`
 - `misclassified_test.csv`
 - `test_metrics_detailed.json`
 - `test_metrics_by_group.json`
-- per-epoch metric logs and `run_summary.json`
+- `run_summary.json`
+- multi-seed aggregate files (`multiseed_summary.json`)
 
-To flatten completed runs into a comparison table:
+## Notebook and Analysis
 
-```bash
-python -m src.modeling.summarize_runs --root outputs/modeling --output outputs/modeling/run_summary_table.csv
-```
+- Main analysis notebook: `analysis/deep_results_analysis.ipynb`
+- Analysis script: `analysis/generate_analysis.py`
+- Generated analysis outputs: `analysis/outputs/`
 
-To create a mean/std table from multi-seed aggregates:
+## Submission-Facing Notes
 
-```bash
-python -m src.modeling.summarize_multiseed --root outputs/modeling --output outputs/modeling/multiseed_summary_table.csv
-```
-
-### Paired Significance Between Two Runs
-
-Compare two `predictions_test.csv` files on matched examples (`base_id` when available):
-
-```bash
-python -m src.modeling.paired_significance \
-  --a outputs/modeling/bert_base/logs/seed_42/predictions_test.csv \
-  --b outputs/modeling/bert_base_slang_masked/logs/seed_42/predictions_test.csv \
-  --output outputs/modeling/paired_significance_bert_base_seed42.json
-```
-
-The output JSON includes paired accuracy difference, McNemar p-value, sign-test p-value, and a bootstrap CI.
+- This repository already contains code for Data Collection, Cleaning, Preprocessing, Feature Extraction (slang/informal signals and text variants), Modeling, and Evaluation.
+- Final reported modeling scope is BERT-base + BERTweet, with GPT baseline as comparison only.
+- Deployment is intentionally excluded for now, per your request.
+- For the Code Documentation deliverable, use:
+  - `README.md` (setup and execution instructions)
+  - `CODE_DOCUMENTATION.md` (detailed code/module documentation)
