@@ -1,136 +1,114 @@
-# Final Results Analysis
+# Final Results Analysis (Outputs/Modeling)
 
-## Scope and Source of Truth
+## Scope and Data Sources
 
-This analysis is based on model logs and summary tables in `outputs/modeling/`:
+This analysis is based on artifacts under `outputs/modeling`:
 
-- `outputs/modeling/run_summary_table.csv` (seed-level runs)
-- `outputs/modeling/multiseed_summary_table.csv` (3-seed aggregates)
-- paired significance outputs for baseline vs slang-heavy finetune
+- `outputs/modeling/run_summary_table.csv` (seed-level records)
+- `outputs/modeling/multiseed_summary_table.csv` (aggregated multiseed metrics)
+- `outputs/modeling/paired_significance_bert_vs_finetune_slang_seed42.json`
+- `outputs/modeling/paired_significance_bertmixed_vs_finetune_mixed_seed42.json`
 
-Context reflected here matches your final project direction:
+Interpretation here prioritizes:
 
-- Main model development: BERT-base and BERTweet
-- GPT used as baseline comparison only
-- GPT DAPT/fine-tuning not part of final reported core results
+- robust model ranking (mean + uncertainty)
+- stability across seeds
+- statistically tested impact of slang-heavy finetuning
 
-## What Is Available in Outputs
+## Coverage Snapshot
 
-- BERT-base: baseline, slang_masked, mixed (3 seeds each)
-- BERTweet: baseline, slang_masked, mixed (3 seeds each)
-- BERT slang-heavy finetuning: slang_masked and mixed (3 seeds each, slang-heavy subgroup)
-- GPT baseline: original variant, seed 42
+- BERT-base: baseline, mixed, slang_masked (3 seeds each)
+- BERTweet: baseline, mixed, slang_masked (3 seeds each)
+- BERT slang-heavy finetunes: original and mixed (3 seeds each)
+- GPT baseline: single-seed entry in run-level table (comparison-only)
 
-## Per-Experiment Performance (Multi-Seed)
+## Multi-Seed Leaderboard
 
-Ranked by `test_macro_f1_mean` from `multiseed_summary_table.csv`:
+Ranked by `test_macro_f1_mean` from `multiseed_summary_table.csv`.
 
-1. `bert_base_baseline` -> Accuracy 0.9322, Macro-F1 0.9248 (+/- 0.0025)
-2. `bert_base_slang_masked` -> Accuracy 0.9284, Macro-F1 0.9212 (+/- 0.0019)
-3. `bert_base_mixed` -> Accuracy 0.9276, Macro-F1 0.9205 (+/- 0.0027)
-4. `bertweet_mixed` -> Accuracy 0.9204, Macro-F1 0.9113 (+/- 0.0022)
-5. `bertweet_baseline` -> Accuracy 0.9164, Macro-F1 0.9092 (+/- 0.0104)
-6. `bert_finetune_slang_heavy` -> Accuracy 0.8965, Macro-F1 0.8909 (+/- 0.0009)
-7. `bert_finetune_slang_heavy_mixed` -> Accuracy 0.8941, Macro-F1 0.8880 (+/- 0.0005)
-8. `bertweet_slang_masked` -> Accuracy 0.5773, Macro-F1 0.4313 (+/- 0.4133)
-
-## Difference Between Models
-
-### BERT-base vs BERTweet (same variants)
-
-Macro-F1 means:
-
-- Original: BERT-base 0.9248 vs BERTweet 0.9092 (BERT-base +0.0156)
-- Mixed: BERT-base 0.9205 vs BERTweet 0.9113 (BERT-base +0.0092)
-- Slang-masked: BERT-base 0.9212 vs BERTweet 0.4313 (BERT-base +0.4899)
+| Rank | Experiment                        | Accuracy Mean | Accuracy Std | Macro-F1 Mean | Macro-F1 Std | Macro-F1 CV % |
+| ---- | --------------------------------- | ------------: | -----------: | ------------: | -----------: | ------------: |
+| 1    | `bert_base_baseline`              |        0.9322 |       0.0016 |        0.9248 |       0.0025 |          0.27 |
+| 2    | `bert_base_slang_masked`          |        0.9284 |       0.0021 |        0.9212 |       0.0019 |          0.20 |
+| 3    | `bert_base_mixed`                 |        0.9276 |       0.0031 |        0.9205 |       0.0027 |          0.30 |
+| 4    | `bertweet_mixed`                  |        0.9204 |       0.0014 |        0.9113 |       0.0022 |          0.24 |
+| 5    | `bertweet_baseline`               |        0.9164 |       0.0104 |        0.9092 |       0.0104 |          1.14 |
+| 6    | `bert_finetune_slang_heavy`       |        0.8965 |       0.0014 |        0.8909 |       0.0009 |          0.11 |
+| 7    | `bert_finetune_slang_heavy_mixed` |        0.8941 |       0.0005 |        0.8880 |       0.0005 |          0.06 |
+| 8    | `bertweet_slang_masked`           |        0.5773 |       0.2958 |        0.4313 |       0.4133 |         95.83 |
 
 Interpretation:
 
-- BERT-base is consistently stronger across variants.
-- The largest gap is in slang-masked setting due to BERTweet instability.
+- `bert_base_baseline` is the strongest overall performer.
+- The top three entries are all BERT-base variants with narrow uncertainty.
+- `bertweet_slang_masked` is a clear instability outlier.
 
-### Within-model variant sensitivity
+## Family and Variant Comparison (Core Experiments)
 
-BERT-base:
+Core experiments exclude finetune rows to keep model-family comparisons fair.
 
-- Best variant: original (Macro-F1 0.9248)
-- Variant drop from original:
-  - slang_masked: -0.0036
-  - mixed: -0.0043
-- Interpretation: mild degradation only; fairly robust.
+| Model Family | Original |  Mixed | Slang Masked |
+| ------------ | -------: | -----: | -----------: |
+| BERT         |   0.9248 | 0.9205 |       0.9212 |
+| BERTweet     |   0.9092 | 0.9113 |       0.4313 |
 
-BERTweet:
+BERT minus BERTweet macro-F1 gap:
 
-- Best variant: mixed (Macro-F1 0.9113)
-- Original is close (0.9092)
-- Slang_masked collapses (0.4313, very high std)
-- Interpretation: sensitive/unstable under full slang masking.
-
-### GPT baseline vs BERT leaders
-
-GPT baseline (seed 42 only):
-
-- Accuracy 0.9137
-- Macro-F1 0.9064
-
-Compared to best BERT multiseed (`bert_base_baseline` Macro-F1 0.9248), GPT baseline is lower by about 0.0184 Macro-F1. Because GPT has only one seed and no full matrix completion, this remains comparison-only evidence.
-
-## Per-Model Performance (Seed-Level Aggregates)
-
-Computed from seed-level runs in `run_summary_table.csv` (excluding non-seeded legacy row):
-
-- `bert-base-uncased`: 15 runs, avg Accuracy 0.9158, avg Macro-F1 0.9091
-- `vinai/bertweet-base`: 9 runs, avg Accuracy 0.8047, avg Macro-F1 0.7506
-- `openai-community/gpt2`: 1 run, Accuracy 0.9137, Macro-F1 0.9064
-
-Important caveat:
-
-- BERTweet average is pulled down heavily by `bertweet_slang_masked` failures. For fair reading, compare per-variant numbers above.
-
-## Slang-Heavy Finetuning Result (Negative Finding)
-
-When compared on matched slang-heavy test examples, slang-heavy-only finetuning underperforms baseline:
-
-- baseline original vs `bert_finetune_slang_heavy`:
-  - accuracy diff (finetune - baseline): -0.0340
-  - McNemar p: 1.53e-09
-  - Sign test p: 6.55e-10
-  - bootstrap 95% CI: [-0.0445, -0.0230]
-
-- baseline mixed vs `bert_finetune_slang_heavy_mixed`:
-  - accuracy diff (finetune - baseline): -0.0266
-  - McNemar p: 7.20e-08
-  - Sign test p: 3.58e-08
-  - bootstrap 95% CI: [-0.0367, -0.0170]
+| Variant      | Delta (BERT - BERTweet) |
+| ------------ | ----------------------: |
+| Original     |                 +0.0156 |
+| Mixed        |                 +0.0092 |
+| Slang Masked |                 +0.4899 |
 
 Interpretation:
 
-- Performance drop is statistically significant in both comparisons.
-- This is a valid and useful negative result: narrowing training to slang-heavy only reduced general sentiment classification quality on that subgroup.
+- BERT is consistently stronger than BERTweet on original and mixed variants.
+- Under aggressive slang masking, BERTweet collapses while BERT remains stable.
 
-## High-Level Takeaways
+## Seed Stability and Reproducibility Risk
 
-1. Best overall model in current outputs: `bert_base_baseline`.
-2. BERT-base consistently outperforms BERTweet across comparable variants.
-3. BERTweet with full slang masking is unstable and should be treated as a limitation/risk finding.
-4. GPT baseline is competitive but not superior to top BERT result, and evidence is limited to one seed.
-5. Slang-heavy-only finetuning did not improve results and significantly degraded performance.
+Stability indicators from multiseed uncertainty and seed-level diagnostics:
 
-## Recommended Wording for Final Write-Up
+- Most stable among high performers: `bert_base_slang_masked` (Macro-F1 std 0.0019)
+- Moderate sensitivity: `bertweet_baseline` (Macro-F1 std 0.0104)
+- Severe instability: `bertweet_slang_masked` (Macro-F1 std 0.4133; CV 95.83%)
 
-- Present BERT-base and BERTweet as the core model families.
-- Report GPT as supplementary baseline comparison.
-- Explicitly include the negative finetuning result and significance tests as part of the contribution.
-- Discuss `bertweet_slang_masked` instability as an observed failure mode under aggressive masking.
+This means mean performance alone is not enough. Reporting should include uncertainty for every main comparison.
+
+## Slang-Heavy Finetuning: Statistical Result
+
+Matched-example paired tests show that slang-heavy finetuning underperforms baseline in both checked settings.
+
+| Comparison                                             | Matched N | Accuracy Delta (Finetune - Baseline) | McNemar p | Sign Test p | Bootstrap 95% CI   |
+| ------------------------------------------------------ | --------: | -----------------------------------: | --------: | ----------: | ------------------ |
+| `bert_base_baseline` vs `bert_finetune_slang_heavy`    |      2178 |                              -0.0340 |  1.53e-09 |    6.55e-10 | [-0.0445, -0.0230] |
+| `bert_base_mixed` vs `bert_finetune_slang_heavy_mixed` |      2178 |                              -0.0266 |  7.20e-08 |    3.58e-08 | [-0.0367, -0.0170] |
+
+Interpretation:
+
+- Both deltas are negative.
+- Both significance tests are strongly below 0.05.
+- Confidence intervals are fully below zero.
+
+Conclusion: slang-heavy-only finetuning is a robust negative finding in current outputs.
+
+## Practical Write-Up Guidance
+
+Use this framing in the final report:
+
+1. BERT-base is the best-performing and most reliable family in this experiment matrix.
+2. BERTweet is competitive on mixed/original, but fails under slang-masked setup.
+3. Slang-heavy finetuning is not beneficial in this configuration and significantly degrades paired performance.
+4. GPT baseline can be shown as contextual reference only (single-seed evidence).
 
 ## Reproducibility
 
-To regenerate analysis artifacts:
+Regenerate summary artifacts:
 
 ```bash
 python analysis/generate_analysis.py
 ```
 
-Interactive deep dive:
+Interactive deep-dive notebook:
 
 - `analysis/deep_results_analysis.ipynb`
