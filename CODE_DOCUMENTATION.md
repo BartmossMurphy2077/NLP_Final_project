@@ -293,6 +293,29 @@ Run:
 python -m src.modeling.paired_significance --a outputs/modeling/bert_base/logs/seed_42/predictions_test.csv --b outputs/modeling/bert_base_slang_masked/logs/seed_42/predictions_test.csv --output outputs/modeling/paired_significance_bert_vs_slang_seed42.json
 ```
 
+### `src/deployment/inference.py`
+
+Responsibilities:
+
+- Discovers deployable model exports under `MODELS_FINAL/`.
+- Validates that a `final_model` directory includes actual weight files.
+- Applies runtime cleaning plus variant-specific text preparation.
+- Loads local Hugging Face classifier exports and returns normalized sentiment labels.
+
+### `src/deployment/gradio_app.py`
+
+Responsibilities:
+
+- Builds the user-facing deployment demo.
+- Shows which model families are currently available or missing.
+- Exposes one inference workflow for comparing model variants.
+
+Run:
+
+```powershell
+python app.py
+```
+
 ## Configuration Strategy
 
 Model experiments are configured in `configs/modeling/*.yaml`.

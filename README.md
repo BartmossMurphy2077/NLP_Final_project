@@ -216,7 +216,59 @@ Each run in `outputs/modeling/...` can contain:
 
 - This repository already contains code for Data Collection, Cleaning, Preprocessing, Feature Extraction (slang/informal signals and text variants), Modeling, and Evaluation.
 - Final reported modeling scope is BERT-base + BERTweet, with GPT baseline as comparison only.
-- Deployment is intentionally excluded for now, per your request.
+- A deployment demo is now included through `app.py` and `src/deployment/`.
 - For the Code Documentation deliverable, use:
   - `README.md` (setup and execution instructions)
   - `CODE_DOCUMENTATION.md` (detailed code/module documentation)
+
+## Deployment Demo
+
+This repository now includes a simple multi-model deployment demo built with Gradio.
+
+What it does:
+
+- loads deployable final models from `MODELS_FINAL/`
+- exposes a single web UI for comparing model variants
+- applies the same URL/mention cleaning used in training
+- applies variant-specific slang masking before inference
+- remaps raw classifier outputs to `negative`, `neutral`, and `positive`
+
+### Run locally
+
+Install dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Launch the demo:
+
+```powershell
+python app.py
+```
+
+Then open the local Gradio URL shown in the terminal.
+
+### Model discovery behavior
+
+The deployment app auto-discovers model folders under `MODELS_FINAL/` and only serves variants that contain actual weight files.
+
+Expected families:
+
+- `bert_base`
+- `bert_finetune_slang`
+- `bert_finetune_slang_mixed`
+
+If one family is missing weights, the app marks it as unavailable instead of failing at startup.
+
+### Deploy to Hugging Face Spaces
+
+Recommended for final-project sharing:
+
+1. Create a new Gradio Space on Hugging Face.
+2. Upload this repository.
+3. Ensure `requirements.txt` is present at the repo root.
+4. Keep `app.py` at the repo root as the Space entrypoint.
+5. Include the desired `MODELS_FINAL/` folders in the Space repository or storage.
+
+Once the Space builds, the demo UI will be publicly shareable by URL.
